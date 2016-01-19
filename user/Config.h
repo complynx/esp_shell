@@ -27,6 +27,7 @@
 #define CONFIG_F(name,ind)
 
 struct Config_inner{
+	u32 CRC;
 	u8 flags;
 	CONFIGS
 };

@@ -11,37 +11,38 @@ extern "C"{
 #	include "user_interface.h"
 #	include "user_config.h"
 #	include "espconn.h"
-typedef struct espconn Espconn;
 }
 #include <vector>
 #include "routines.h"
 #include "espmissingincludes.h"
 #include "Config.h"
-#include "HTTPD.h"
+#include "IoTServer.h"
 
 extern "C" void ICACHE_FLASH_ATTR user_rf_pre_init(void)
 {
 }
 
-Espconn udpconn;
-esp_udp udpconn_udp;
+
 
 void ICACHE_FLASH_ATTR reset_wifi_configs(){
-	wifi_set_opmode(STATIONAP_MODE);
+	DPRINT("Resetting WiFi config...");
+	wifi_set_opmode(STATION_MODE);
 	struct station_config stconfig;
 	wifi_station_disconnect();
 	wifi_station_dhcpc_stop();
 	if(wifi_station_get_config(&stconfig))
 	{
+		DPRINT("Setting config...");
 		os_memset(stconfig.ssid, 0, sizeof(stconfig.ssid));
 		os_memset(stconfig.password, 0, sizeof(stconfig.password));
 		os_sprintf((char*)stconfig.ssid, "%s", WIFI_CLIENTSSID);
 		os_sprintf((char*)stconfig.password, "%s", WIFI_CLIENTPASS);
 		if(!wifi_station_set_config(&stconfig))
 		{
-			DPRINT("ESP8266 not set station config!");
+			DPRINT("Config setting failed");
 			Config::instance().wifi_configured(false);
 		}else{
+			DPRINT("Config setting success");
 			Config::instance().wifi_configured(true);
 		}
 	}
@@ -51,23 +52,37 @@ void ICACHE_FLASH_ATTR reset_wifi_configs(){
 	DPRINT("ESP8266 in STA mode configured.");
 }
 
-void ICACHE_FLASH_ATTR udpreceive(void*arg,char*data,unsigned short int len){
-	Espconn *conn=(Espconn *)arg;
-	char c=data[len-1];
-	data[len-1]=0;
-	DPRINT("%s%c",data,c);
-	data[len-1]=c;
-}
+static ETSTimer WiFiCheck;
 
-void ICACHE_FLASH_ATTR startudp(){
-	udpconn.proto.udp=&udpconn_udp;
-	udpconn.type=ESPCONN_UDP;
-	udpconn.state = ESPCONN_NONE;
-	udpconn.proto.udp->local_port=Config::instance().port();
-	IP4_ADDR_S(udpconn.proto.udp->local_ip,0,0,0,0);
-	espconn_regist_recvcb(&udpconn,udpreceive);
-	espconn_accept(&udpconn);
-	DPRINT("Server started");
+static void ICACHE_FLASH_ATTR wifi_check_ip(void *arg)
+{
+	os_timer_disarm(&WiFiCheck);
+	switch(wifi_station_get_connect_status())
+	{
+		case STATION_GOT_IP:
+			struct ip_info LocalIP;
+			wifi_get_ip_info(STATION_IF, &LocalIP);
+			if(LocalIP.ip.addr != 0) {
+				DPRINT("WiFi connected");
+
+				IoTServer::instance().setIP(LocalIP);
+				return;
+			}
+			break;
+		case STATION_WRONG_PASSWORD:
+			DPRINT("WiFi connecting error, wrong password");
+			break;
+		case STATION_NO_AP_FOUND:
+			DPRINT("WiFi connecting error, ap not found");
+			break;
+		case STATION_CONNECT_FAIL:
+			DPRINT("WiFi connecting fail\r\n");
+			break;
+		default:
+			DPRINT("WiFi connecting...");
+	}
+	os_timer_setfn(&WiFiCheck, (os_timer_func_t *)wifi_check_ip, NULL);
+	os_timer_arm(&WiFiCheck, 1000, 0);
 }
 
 extern "C" void ICACHE_FLASH_ATTR user_init(void)
@@ -77,11 +92,16 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 	uart_init(UART_BITRATE, UART_BITRATE);
 
 	DPRINT("ESP8266 platform starting...");
+//	Config::instance().zero();
 
 	if(!Config::instance().wifi_configured())
 		reset_wifi_configs();
 
-	startudp();
+//	startudp();
 
-	HTTPD::instance();
+	os_timer_disarm(&WiFiCheck);
+	os_timer_setfn(&WiFiCheck, (os_timer_func_t *)wifi_check_ip, NULL);
+	os_timer_arm(&WiFiCheck, 1000, 0);
+
+//	HTTPD::instance();
 }

@@ -8,6 +8,11 @@
 #define UART_BITRATE BIT_RATE_115200
 #define UDP_PORT 8266
 
+// commas instead of dots for functions and macros
+#define GROUP_IP_ADDR_1 238
+#define GROUP_IP_ADDR_2 2
+#define GROUP_IP_ADDR_3 6
+#define GROUP_IP_ADDR_4 6
 
 //#define FULL_HTTP_CODE_LIST 1
 

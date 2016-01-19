@@ -8,6 +8,7 @@
 #include "Config.h"
 #include <ets_sys.h>
 #include "osapi.h"
+#include "crc32.h"
 #include <os_type.h>
 extern "C"{
 #include "user_interface.h"
@@ -39,6 +40,7 @@ ICACHE_FLASH_ATTR Config::~Config() {
 }
 
 void Config::zero(){
+	DPRINT("Resetting settings to default");
 	cnf->port=UDP_PORT;
 	os_memset(cnf->name,0,MAX_SAVED_STR);
 	os_sprintf(cnf->name,"ESP-%lu",system_get_chip_id());
@@ -49,9 +51,16 @@ void Config::zero(){
 void Config::load(){
 	DPRINT("Loading config...");
 	system_param_load(ESP_PARAM_START_SEC,0, U->mem,USED_MEM);
+	u32 crc=crc32(0,U->mem+sizeof(u32),USED_MEM-sizeof(u32));
+	if(U->config.CRC!=crc){
+		DPRINT("Checking CRC32 failed.");
+		zero();
+	}
 }
 
 void Config::save(){
 	DPRINT("Saving config...");
+	u32 crc=crc32(0,U->mem+sizeof(u32),USED_MEM-sizeof(u32));
+	U->config.CRC=crc;
 	system_param_save_with_protect(ESP_PARAM_START_SEC, U->mem,USED_MEM);
 }
