@@ -14,6 +14,7 @@ extern "C"{
 typedef struct espconn espconn;
 #endif//__cplusplus
 
+int stricmp(const char*a,const char*b);
 int atoi(const char *nptr);
 void ets_install_putc1(void *routine);
 void ets_isr_attach(int intr, void (*handler)(int8_t),...);

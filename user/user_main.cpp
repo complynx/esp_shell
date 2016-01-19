@@ -39,7 +39,7 @@ void ICACHE_FLASH_ATTR reset_wifi_configs(){
 		os_sprintf((char*)stconfig.password, "%s", WIFI_CLIENTPASS);
 		if(!wifi_station_set_config(&stconfig))
 		{
-			DPRINT("ESP8266 not set station config!\r\n");
+			DPRINT("ESP8266 not set station config!");
 			Config::instance().wifi_configured(false);
 		}else{
 			Config::instance().wifi_configured(true);
@@ -48,14 +48,14 @@ void ICACHE_FLASH_ATTR reset_wifi_configs(){
 	wifi_station_connect();
 	wifi_station_dhcpc_start();
 	wifi_station_set_auto_connect(1);
-	DPRINT("ESP8266 in STA mode configured.\r\n");
+	DPRINT("ESP8266 in STA mode configured.");
 }
 
 void ICACHE_FLASH_ATTR udpreceive(void*arg,char*data,unsigned short int len){
 	Espconn *conn=(Espconn *)arg;
 	char c=data[len-1];
 	data[len-1]=0;
-	ets_uart_printf("%s%c\r\n",data,c);
+	DPRINT("%s%c",data,c);
 	data[len-1]=c;
 }
 
@@ -67,7 +67,7 @@ void ICACHE_FLASH_ATTR startudp(){
 	IP4_ADDR_S(udpconn.proto.udp->local_ip,0,0,0,0);
 	espconn_regist_recvcb(&udpconn,udpreceive);
 	espconn_accept(&udpconn);
-	DPRINT("Server started\r\n");
+	DPRINT("Server started");
 }
 
 extern "C" void ICACHE_FLASH_ATTR user_init(void)
@@ -76,7 +76,7 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 	// Configure the UART
 	uart_init(UART_BITRATE, UART_BITRATE);
 
-	DPRINT("ESP8266 platform starting...\r\n");
+	DPRINT("ESP8266 platform starting...");
 
 	if(!Config::instance().wifi_configured())
 		reset_wifi_configs();

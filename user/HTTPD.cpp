@@ -19,6 +19,62 @@ extern "C"{
 #include "driver/uart.h"
 }
 char* newcpy(char*str,u16 pluslen=1);
+char* newcpyn(char*str,u16 len);
+void strToLower(char*);
+
+inline char chrToLower(const char c){
+	if(c>='A' && c<='Z')
+		return (c-'A')+'a';
+
+	return c;
+};
+extern "C"
+ICACHE_FLASH_ATTR int stricmp(const char*a,const char*b){
+	const char*i,*j;
+	int ret=0;
+	for(i=a,j=b;*i && *j;++i,++j)
+		if((ret=(chrToLower(*i)-chrToLower(*j)))!=0)
+			return ret;
+	return 0;
+}
+
+ICACHE_FLASH_ATTR char* Args::toString(){
+	return val;
+}
+
+ICACHE_FLASH_ATTR void Args::setName(const char* s){
+	name=new char[os_strlen(s)+1];
+	strToLower(name);
+}
+
+ICACHE_FLASH_ATTR Args::~Args(){
+	if(val) delete[] val;
+	if(name) delete [] name;
+	if(next) delete [] next;
+}
+
+
+ICACHE_FLASH_ATTR u8 fromHex(char c){
+	if(c>='0' && c<='9') return c-'0';
+	if(c>='A' && c<='F') return c-'A'+0xA;
+	if(c>='a' && c<='f') return c-'a'+0xA;
+	return 0x10;//err
+}
+
+ICACHE_FLASH_ATTR u16 decodeURIcomponent(char*str){
+	char*i,*j,c;
+	for(i=j=str;*i;++i){
+		if(*i=='%' && *(i+1) && *(i+2)){
+			c=fromHex(*(++i))*0x10;
+			c+=fromHex(*(++i));
+			*(j++)=c;
+		}else{
+			*(j++)=*i;
+		}
+	}
+	*j=*i;
+	return j-str;
+}
 
 ICACHE_FLASH_ATTR HTTPD::HTTPD() {
     conn.type = ESPCONN_TCP;
@@ -29,7 +85,7 @@ ICACHE_FLASH_ATTR HTTPD::HTTPD() {
 
     espconn_accept(&conn);
 
-    DPRINT("webserver started\n");
+    DPRINT("webserver started");
 }
 static HTTPD* server=(HTTPD*)0;
 
@@ -54,32 +110,125 @@ ICACHE_FLASH_ATTR Request::Request(struct espconn *pesp_conn, char *pusrdata, un
 	arguments=(Args*)0;
 	body=(char*)0;
 
-    DPRINT("webserver's %d.%d.%d.%d:%d got data, length: %d\n", pesp_conn->proto.tcp->remote_ip[0],
+    DPRINT("webserver's %d.%d.%d.%d:%d got data, length: %d", pesp_conn->proto.tcp->remote_ip[0],
         		pesp_conn->proto.tcp->remote_ip[1],pesp_conn->proto.tcp->remote_ip[2],
         		pesp_conn->proto.tcp->remote_ip[3],pesp_conn->proto.tcp->remote_port,length);
 }
 
-ICACHE_FLASH_ATTR void Request::parse_starting_line(){
+ICACHE_FLASH_ATTR void Response::addHeader(Args* h){
+	Args* Ai;
+	for(Ai=headers;Ai->next;Ai=Ai->next);
+	Ai->next=h;
+}
+
+ICACHE_FLASH_ATTR u16 Request::parse_starting_line(){
 	char *pos,*pos2;
 	size_t i;
-	for(i=length,pos=data;i;i--,pos++)
+	for(i=length,pos=data;i;--i,++pos)
 		if(*pos == ' ')
 			break;
-	if(i){
+	if(!i) return send_err(400);
 #define M(meth) \
-		if(!os_strncmp((char*)# meth ,data,(pos-data))){\
-			method=meth;\
-			DPRINT("Got method %s\n",(const char*)# meth);\
-		}else
+	if(!os_strncmp((char*)# meth ,data,(pos-data))){\
+		method=meth;\
+		DPRINT("Got method %s",(const char*)# meth);\
+	}else
 
-		M(GET)M(POST)M(HEAD) method=UNKNOWN;
+	METHODS_ALLOWED method=UNKNOWN;
 #undef M
 
-		if(!method){
-			send_err(501);
-		}else{
-		}
+	if(!method)return send_err(501);
+	if(method==OPTIONS){
+		Response r(conn,version?version:10);
+		r.code=200;
+		r.addHeader(HTTPD::Allow());
+		u16 ret=r.send();
+		response_sent=true;
+		return ret;
 	}
+
+	--i;++pos;
+	if(!i)return send_err(400);
+
+	for(pos2=pos;i;--i,++pos)
+		if(*pos == ' ')
+			break;
+	if(!i)return send_err(505);//http 0.9
+
+	parse_URI(pos2,pos-pos2);
+
+	if((i-=10)<0) return send_err(400);//" HTTP/1.x\r\n"
+	pos+=6;
+	if(*pos!='1') return send_err(505);
+	pos+=2;
+	if(*pos=='1') version=11;
+	else if(*pos=='0') version=10;
+	else return send_err(505);
+
+	DPRINT("Got version 1.%d",version%10);
+
+	if(pos[1]!='\r' || pos[2]!='\n')
+		 return send_err(400);
+
+	return 0;
+}
+
+ICACHE_FLASH_ATTR char* extractURIpart(char* start,u16 len){
+	char* tmp=new char[len+1];
+	os_strncpy(tmp,start,len);
+	tmp[len]=0;
+	u16 l=decodeURIcomponent(tmp);
+	char*ret=new char[l+1];
+	os_strcpy(ret,tmp);
+	delete [] tmp;
+	return ret;
+}
+
+ICACHE_FLASH_ATTR u16 Request::parse_URI(char* str,u16 len){
+	char *i,*k;
+	u16 j;
+	for(i=str,j=len;j;--j,++i)
+		if(*i=='?')
+			break;
+
+	URI=extractURIpart(str,i-str);
+
+	DPRINT("Extracted URL: %s",URI);
+
+	Args*last=arguments;
+	if(last) for(;last->next;last=last->next);
+	while(j){
+		Args *a=new Args;
+
+		++i,--j;//last char was '?' if this is the first entrance, or '&'
+		for(k=i;j;--j,++i)
+			if(*i=='&' || *i=='=')
+				break;
+
+		a->name=extractURIpart(k,i-k);
+
+		if(j && *i=='='){
+			++i,--j;
+			for(k=i;j;--j,++i)
+				if(*i=='&')
+					break;
+
+			a->val=extractURIpart(k,i-k);
+		}else{
+			a->val=new char[1];
+			a->val[0]=0;
+		}
+
+		if(last){
+			last->next=a;
+		}else{
+			arguments=a;
+		}
+		last=a;
+		DPRINT("Extracted param: \"%s\" = \"%s\"",last->name,last->val);
+	}
+
+	return 0;
 }
 
 ICACHE_FLASH_ATTR char* Response::get_error_str(u16 code){
@@ -169,41 +318,59 @@ ICACHE_FLASH_ATTR char* Response::get_error_str(u16 code){
 	E(511,"Network Authentication Required");
 #endif
 
+	//6xx -- internal server codes,
+	E(600,"Internal error");
+	E(601,"Response already sent");
+
 #undef E
 	return (char*)"";
 }
 
-ICACHE_FLASH_ATTR void Response::send_err(u16 errno){
-	code=errno;
-	contents=get_error_str(errno);
-	DPRINT("Sending error %d %s\n",errno,contents);
-	send();
-	contents=(char*)0;//not to delete static hardcoded data on ~Response
+ICACHE_FLASH_ATTR void strToLower(char*s){
+	for(char*i=s;*i;++i)
+		*i=chrToLower(*i);
 }
 
-ICACHE_FLASH_ATTR void Response::send(){
-	if(is_sent) return;
+ICACHE_FLASH_ATTR u16 Response::send_err(u16 errnum){
+	code=errnum;
+	contents=get_error_str(code);
+	DPRINT("Sending error %d %s",code,contents);
+	u16 ret=send();
+	contents=(char*)0;//not to delete static hardcoded data on ~Response
+	return ret;
+}
+
+ICACHE_FLASH_ATTR u16 Response::send(){
+	if(is_sent) return 601;
 
 	char*buf,*pos;
 	u16 length=0;
 	Args *Ai;
 
-	DPRINT("Sending response\n");
+	DPRINT("Sending response");
+
+	if(code>=600) code=500;
 
 	char*errstr=get_error_str(code);
 
 	//HTTP/1.x COD str\r\n -- 13+strlen(str)+2
 	length=15+os_strlen(errstr);
 
-	DPRINT("HTTP/1.%d %d %s\n",(version%10),code,errstr);
+	DPRINT("HTTP/1.%d %d %s",(version%10),code,errstr);
+
+	if(code == 405 || code == 501){
+		addHeader(HTTPD::Allow());
+	}
 
 	if(contents){
-		DPRINT("Adding content length\n");
+		DPRINT("Adding content length");
 		for(Ai=headers;Ai->next;Ai=Ai->next);
-		Ai=Ai->next=new Args;
-		Ai->name=newcpy((char*)"Content-Length");
-		Ai->val=new char[7];
-		os_sprintf(Ai->val,"%d",os_strlen(contents));
+		Ai->next=new Args();
+		Ai=Ai->next;
+		char* tmp=new char[7];
+		os_sprintf(tmp,"%d",os_strlen(contents));
+		Ai->name=newcpy((char*)"content-length");
+		Ai->val=tmp;
 
 		//HTTP/1.x COD str\r\n
 		//[headers: vals\r\n]
@@ -213,26 +380,27 @@ ICACHE_FLASH_ATTR void Response::send(){
 	}
 
 	if(code<400){
-		DPRINT("Determining content expiration info\n");
+		DPRINT("Determining content expiration info");
 		//there is real content, not errcode, set it's expiration
-		for(Ai=headers;Ai->next || !os_strcmp("Expires",Ai->name);Ai=Ai->next);
-		if(os_strcmp("Expires",Ai->name)){
-			DPRINT("Adding content expiration info\n");
+		for(Ai=headers;Ai->next || !os_strcmp("expires",Ai->name);Ai=Ai->next);
+		if(os_strcmp("expires",Ai->name)){
+			DPRINT("Adding content expiration info");
 			Ai=Ai->next=new Args;
-			Ai->name=newcpy((char*)"Expires");
+			Ai->name=newcpy((char*)"expires");
 			Ai->val=newcpy((char*)"Fri, 10 Apr 2008 14:00:00 GMT");
-			for(Ai=headers;Ai->next || (!os_strcmp("Pragma",Ai->name) && !os_strcmp("no-cache",Ai->val));Ai=Ai->next);
-			if(os_strcmp("Pragma",Ai->name)){
+			for(Ai=headers;Ai->next || (!os_strcmp("pragma",Ai->name) && !os_strcmp("no-cache",Ai->val));Ai=Ai->next);
+			if(os_strcmp("pragma",Ai->name)){
 				Ai=Ai->next=new Args;
-				Ai->name=newcpy((char*)"Pragma");
+				Ai->name=newcpy((char*)"pragma");
 				Ai->val=newcpy((char*)"no-cache");
 			}
+
 		}
 	}
 
 	for(Ai=headers;Ai;Ai=Ai->next){
 		//name: val\r\n 	-- strlen(name)+strlen(val)+4
-		length+=os_strlen(Ai->name)+os_strlen(Ai->val)+4;
+		length+=os_strlen(Ai->name)+os_strlen(Ai->toString())+4;
 	}
 
 	buf=new char[length];
@@ -241,11 +409,11 @@ ICACHE_FLASH_ATTR void Response::send(){
 	pos=pos+os_strlen(pos);
 
 	for(Ai=headers;Ai;Ai=Ai->next){
-		DPRINT("%s: %s\r\n",Ai->name,Ai->val);
-		os_sprintf(pos,"%s: %s\r\n",Ai->name,Ai->val);
+		DPRINT("%s: %s",Ai->name,Ai->toString());
+		os_sprintf(pos,"%s: %s\r\n",Ai->name,Ai->toString());
 		pos=pos+os_strlen(pos);
 	}
-	DPRINT("\n");
+	DPRINT("");
 
 	if(contents){
 		*(pos++)='\r';
@@ -254,15 +422,28 @@ ICACHE_FLASH_ATTR void Response::send(){
 		os_strncpy(pos,contents,os_strlen(contents));
 	}
 
-	DPRINT("Sending... length = %d\n",length);
+	DPRINT("Sending... length = %d",length);
 
-	espconn_sent(conn, (unsigned char*)buf, length);
+	espconn_send(conn, (unsigned char*)buf, length);
+	DPRINT("Sent...? Disconnecting");
+	espconn_disconnect(conn);
+	DPRINT("Finished.");
 
-	DPRINT("Sent...?\n");
 	is_sent=true;
+	return code;
+}
+
+ICACHE_FLASH_ATTR Args* HTTPD::Allow(){
+	Args *ret=new Args;
+#define M(meth) # meth ","
+	ret->val=newcpy((char*)METHODS_ALLOWED "OPTIONS");
+#undef M
+	ret->name=newcpy((char*)"allow");
+	return ret;
 }
 
 ICACHE_FLASH_ATTR Response::~Response(){
+	DPRINT("Deleting Response struct");
 	if(headers) delete headers;
 	if(contents) delete [] contents;
 }
@@ -270,6 +451,12 @@ ICACHE_FLASH_ATTR Response::~Response(){
 ICACHE_FLASH_ATTR char* newcpy(char*str,u16 pluslen){
 	char* ret=new char[os_strlen(str)+pluslen];
 	os_strcpy(ret,str);
+	return ret;
+}
+ICACHE_FLASH_ATTR char* newcpyn(char*str,u16 len){
+	char* ret=new char[len+1];
+	os_strncpy(ret,str,len);
+	ret[len]=0;
 	return ret;
 }
 
@@ -284,24 +471,91 @@ ICACHE_FLASH_ATTR Response::Response(espconn* c,u8 ver){
 
 	Args *i;
 	headers=i=new Args;
-
+	i->name=newcpy((char*)"server");
+	i->val=newcpy((char*)"lwIoTSrv/1.0");
 //	i=i->next=new Args;
 //	i->name=newcpy("Server");
 //	i->val=newcpy("lwIoTSrv/1.0");
 }
 
-ICACHE_FLASH_ATTR void Request::send_err(u16 errno){
+ICACHE_FLASH_ATTR u16 Request::send_err(u16 errnum){
 	Response r(conn,version?version:10);
-	r.send_err(errno);
+	u16 ret=r.send_err(errnum);
 	response_sent=true;
+	return ret;
 }
 
-ICACHE_FLASH_ATTR void Request::parse(){
-    DPRINT("Parsing request\n");
-	parse_starting_line();
+ICACHE_FLASH_ATTR char* pastNextRN(char* I,u16 i){
+	for(--i/*one ahead*/;i;--i,++I)
+		if(I[0]=='\r' && I[1]=='\n')
+			break;
+	if(!i) return I+1;
+	return I+2;
+}
+
+ICACHE_FLASH_ATTR char* newstrcat(const char* str1,const char*str2){
+	char *ret=new char[os_strlen(str1)+os_strlen(str2)+1];
+	os_strcpy(ret,str1);
+	os_strcpy(ret+os_strlen(str1),str2);
+	return ret;
+}
+
+ICACHE_FLASH_ATTR u16 Request::parse_headers(){
+	char *I=pastNextRN(data,length),*J;
+	u16 i=length-(I-data);
+
+	if(!i) return send_err(400);
+
+	Args*last=headers;
+	if(last) for(;last->next;last=last->next);
+	while(true){
+		J=pastNextRN(I,i);
+
+		if(J<=I+2) break;
+
+		char *tmp=newcpyn(J,J-I-2),*ts;
+		DPRINT("\"%s\"",tmp);
+
+		PL;if(*tmp==' '){
+			PL;ts=last->val;
+			PL;last->val=newstrcat(ts,tmp);
+			PL;delete[]ts;
+		}else{
+			PL;
+			if(last) last=last->next=new Args;
+			else last=headers=new Args;
+			PL;for(ts=tmp;*ts;++ts)
+				if(*ts==':')
+					break;
+
+			PL;last->name=newcpyn(tmp,ts-tmp);
+			PL;strToLower(last->name);
+			PL;if(*ts){
+				PL;last->val=newcpy(ts+1);
+			}else{
+				PL;last->val=newcpy((char*)"");
+			}
+
+			DPRINT("%s: \"%s\"",last->name,last->val);
+		}
+		PL;delete [] tmp;
+
+		PL;I=J;
+	}
+
+	return 0;
+}
+
+ICACHE_FLASH_ATTR u16 Request::parse(){
+    DPRINT("Parsing request");
+	u16 ret=parse_starting_line();
+	if(!ret) ret=parse_headers();
+	if(!ret) return send_err(200);
+	return ret;
 }
 
 ICACHE_FLASH_ATTR Request::~Request(){
+	DPRINT("Deleting Request struct");
 	if(headers) delete headers;
 	if(arguments) delete arguments;
 }
@@ -319,7 +573,7 @@ void HTTPD::recon(void *arg, sint8 err)
 {
     struct espconn *pesp_conn = (struct espconn *)arg;
 
-    DPRINT("webserver's %d.%d.%d.%d:%d err %d reconnect\n", pesp_conn->proto.tcp->remote_ip[0],
+    DPRINT("webserver's %d.%d.%d.%d:%d err %d reconnect", pesp_conn->proto.tcp->remote_ip[0],
     		pesp_conn->proto.tcp->remote_ip[1],pesp_conn->proto.tcp->remote_ip[2],
     		pesp_conn->proto.tcp->remote_ip[3],pesp_conn->proto.tcp->remote_port, err);
 }
@@ -329,7 +583,7 @@ void HTTPD::discon(void *arg)
 {
     struct espconn *pesp_conn = (struct espconn *)arg;
 
-    DPRINT("webserver's %d.%d.%d.%d:%d disconnect\n", pesp_conn->proto.tcp->remote_ip[0],
+    DPRINT("webserver's %d.%d.%d.%d:%d disconnect", pesp_conn->proto.tcp->remote_ip[0],
         		pesp_conn->proto.tcp->remote_ip[1],pesp_conn->proto.tcp->remote_ip[2],
         		pesp_conn->proto.tcp->remote_ip[3],pesp_conn->proto.tcp->remote_port);
 }

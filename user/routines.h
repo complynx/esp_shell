@@ -10,5 +10,3 @@
 void do_global_ctors(void);
 
 
-
-

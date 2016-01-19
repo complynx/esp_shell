@@ -47,11 +47,11 @@ void Config::zero(){
 }
 
 void Config::load(){
-	DPRINT("Loading config...\r\n");
+	DPRINT("Loading config...");
 	system_param_load(ESP_PARAM_START_SEC,0, U->mem,USED_MEM);
 }
 
 void Config::save(){
-	DPRINT("Saving config...\r\n");
+	DPRINT("Saving config...");
 	system_param_save_with_protect(ESP_PARAM_START_SEC, U->mem,USED_MEM);
 }

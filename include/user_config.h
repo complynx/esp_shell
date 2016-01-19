@@ -13,9 +13,11 @@
 
 
 #ifdef PLATFORM_DEBUG
-#define DPRINT(...)  do{ets_uart_printf("%s:%d: ",__FILE__,__LINE__);ets_uart_printf(__VA_ARGS__);}while(0)
+#define DPRINT(...)  do{ets_uart_printf("%s:%d: ",__FILE__,__LINE__);ets_uart_printf(__VA_ARGS__);ets_uart_printf("\r\n");}while(0)
+#define PL ets_uart_printf("%s:%d\r\n",__FILE__,__LINE__)
 #else
 #define DPRINT(...)
+#define PL
 #endif
 
 #endif
