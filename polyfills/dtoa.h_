@@ -1,0 +1,48 @@
+/*
+ * cvt.h
+ *
+ *  Created on: 22 џэт. 2016 у.
+ *      Author: complynx
+ */
+
+#ifndef POLYFILLS_DTOA_H_
+#define POLYFILLS_DTOA_H_
+
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#define MAX_FCONVERSION 512 /* largest possible real conversion     */
+#define MAX_EXPT    5   /* largest possible exponent field */
+#define MAX_FRACT   39  /* largest possible fraction field */
+
+
+#define D2UL(D) (*((u64*)(&D)))
+//#if ENDIAN == ENDIAN_LITTLE
+#define U_EXP(U) (((U)>>52)&0x7ff)
+
+#define D_EXP(D) ((D2UL(D)>>52)&0x7ffull)
+#define D_SGN(D) ((D2UL(D)>>63))
+#define D_MANH(D) ((D2UL(D)>>32)&0x000fffffull)
+#define D_MANL(D) (D2UL(D)&0xffffffffull)
+
+#define _isNan(arg) (D2UL(arg) == 0x7fffffffffffffffull)
+#define _isinf(arg) ((D2UL(arg)&0x7fffffffffffffffull)==0x7ff0000000000000ull)
+#define _isNorm(arg) ((!D2UL(arg))||(D2UL(arg)>0x000fffffffffffffull))
+
+void dtoa (char *dbuf, double arg, int fmtch, int width, int prec);
+#ifdef MYMODF
+double _l_modf (double,double*);
+#define modf _l_modf
+#else
+double modf (double,double*);
+#define _l_modf modf
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* POLYFILLS_DTOA_H_ */

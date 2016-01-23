@@ -18,10 +18,11 @@ extern "C"{
 static Config *c=(Config*)0;
 
 
-#if USED_MEM>4096
+#if USED_MEM>SPI_FLASH_SEC_SIZE
 #error "Memory for params is too big to be saved"
 #endif
 
+#define MAGIC 0xFEEDF00D
 
 Config& ICACHE_FLASH_ATTR Config::instance(){
 	if(!c)
@@ -50,17 +51,26 @@ void Config::zero(){
 
 void Config::load(){
 	DPRINT("Loading config...");
-	system_param_load(ESP_PARAM_START_SEC,0, U->mem,USED_MEM);
-	u32 crc=crc32(0,U->mem+sizeof(u32),USED_MEM-sizeof(u32));
-	if(U->config.CRC!=crc){
-		DPRINT("Checking CRC32 failed.");
-		zero();
-	}
+
+	spi_flash_read(ESP_PARAM_SEC_1*SPI_FLASH_SEC_SIZE, (unsigned int*)U->mem,USED_MEM);
+	u32 crc=crc32(MAGIC,U->mem+sizeof(u32),USED_MEM-sizeof(u32));
+	if(U->config.CRC==crc) return;
+	DPRINT("Sector 1 corrupt, trying sector 2...");
+
+	spi_flash_read(ESP_PARAM_SEC_2*SPI_FLASH_SEC_SIZE, (unsigned int*)U->mem,USED_MEM);
+	crc=crc32(MAGIC,U->mem+sizeof(u32),USED_MEM-sizeof(u32));
+	if(U->config.CRC==crc) return;
+
+	DPRINT("Sector 2 corrupt.");
+	zero();
 }
 
 void Config::save(){
 	DPRINT("Saving config...");
-	u32 crc=crc32(0,U->mem+sizeof(u32),USED_MEM-sizeof(u32));
+	u32 crc=crc32(MAGIC,U->mem+sizeof(u32),USED_MEM-sizeof(u32));
 	U->config.CRC=crc;
-	system_param_save_with_protect(ESP_PARAM_START_SEC, U->mem,USED_MEM);
+	spi_flash_erase_sector(ESP_PARAM_SEC_1);
+	spi_flash_write(ESP_PARAM_SEC_1*SPI_FLASH_SEC_SIZE, (unsigned int*)U->mem,USED_MEM);
+	spi_flash_erase_sector(ESP_PARAM_SEC_2);
+	spi_flash_write(ESP_PARAM_SEC_2*SPI_FLASH_SEC_SIZE, (unsigned int*)U->mem,USED_MEM);
 }

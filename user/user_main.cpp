@@ -11,12 +11,14 @@ extern "C"{
 #	include "user_interface.h"
 #	include "user_config.h"
 #	include "espconn.h"
+#include "c_stdio.h"
 }
 #include <vector>
 #include "routines.h"
 #include "espmissingincludes.h"
 #include "Config.h"
 #include "IoTServer.h"
+#include "cJSON.h"
 
 extern "C" void ICACHE_FLASH_ATTR user_rf_pre_init(void)
 {
@@ -103,5 +105,30 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 	os_timer_setfn(&WiFiCheck, (os_timer_func_t *)wifi_check_ip, NULL);
 	os_timer_arm(&WiFiCheck, 1000, 0);
 
+#ifdef PLATFORM_DEBUG
+	system_print_meminfo ();
+#endif
+	cJSON *root,*format;
+	int framerate;
+	char* rendered;
+	root = cJSON_Parse("{\n    \"name\": \"Jack (\\\"Bee\\\") Nimble\",\n    \"format\": {\n        \"type\":       \"rect\",\n        \"width\":      1920, \n        \"height\":     1080, \n        \"interlace\":  false, \n        \"frame rate\": 24\n    }\n}");
+	format = cJSON_GetObjectItem(root,"format");
+	framerate = cJSON_GetObjectItem(format,"frame rate")->valueint;
+	DPRINT("%d",framerate);
+	cJSON_GetObjectItem(format,"frame rate")->valueint = 25;
+	rendered = cJSON_Print(root);
+	DPRINT("%s",rendered);
+	cJSON_Delete(root);
+	os_free(rendered);
+
+	PM;
+	char *test=new char[513];
+//	c_sprintf(test,(char*)"%f",3.1415926);
+	PM;dtoa(test,3.1415926,'f',0,0);
+	DPRINT("%s",test);
+//	double x=3.1415926,y,z;
+//	z=modf(x,&y);
+//	DPRINT("%d %d",(int)(z*1000.),(int)y);
+	PM;
 //	HTTPD::instance();
 }

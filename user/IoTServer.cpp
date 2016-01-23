@@ -13,6 +13,7 @@ extern "C"{
 #include "ip_addr.h"
 #include "driver/uart.h"
 #include "osapi.h"
+#include "user_interface.h"
 }
 
 ICACHE_FLASH_ATTR IoTServer::IoTServer() {
@@ -28,6 +29,7 @@ ICACHE_FLASH_ATTR IoTServer::IoTServer() {
 	espconn_create(&_conn);
 	IP4_ADDR(&group_ip.ip, GROUP_IP_ADDR_1,GROUP_IP_ADDR_2,GROUP_IP_ADDR_3,GROUP_IP_ADDR_4);
 	DPRINT("Server started.");
+	PM;
 }
 
 ICACHE_FLASH_ATTR void IoTServer::setIP(struct ip_info&ip){
@@ -36,6 +38,7 @@ ICACHE_FLASH_ATTR void IoTServer::setIP(struct ip_info&ip){
 	DPRINT("Group IP: %d.%d.%d.%d",group_ip.ip.addr&0xff,(group_ip.ip.addr>>8)&0xff,(group_ip.ip.addr>>16)&0xff,(group_ip.ip.addr>>24)&0xff);
 	espconn_igmp_join(&my_ip.ip, &group_ip.ip);
 	DPRINT("Joined multicast group.");
+	PM;
 }
 
 static IoTServer* srv=0;
@@ -46,6 +49,7 @@ ICACHE_FLASH_ATTR void IoTServer::recv_cb(void*arg,char*data,unsigned short int 
 	data[len-1]=0;
 	DPRINT("%s%c",data,c);
 	data[len-1]=c;
+	PM;
 }
 
 ICACHE_FLASH_ATTR IoTServer& IoTServer::instance(){
