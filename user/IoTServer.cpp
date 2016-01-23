@@ -20,8 +20,8 @@ ICACHE_FLASH_ATTR IoTServer::IoTServer() {
 	_conn.proto.udp=&_udp;
 	_conn.type=ESPCONN_UDP;
 	_conn.state = ESPCONN_NONE;
-	_udp.local_port=Config::instance().port();
-	_udp.remote_port=Config::instance().port();
+	_udp.local_port=Config::I().port();
+	_udp.remote_port=Config::I().port();
 	DPRINT("Server port: %d",_udp.local_port);
 	IP4_ADDR_S(_udp.remote_ip,GROUP_IP_ADDR_1,GROUP_IP_ADDR_2,GROUP_IP_ADDR_3,GROUP_IP_ADDR_4);
 	_conn.reverse=0;

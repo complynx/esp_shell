@@ -1,9 +1,13 @@
 #include "c_types.h"
 #include "osbean.h"
+double modf(double,double*);
 
 ICACHE_FLASH_ATTR double floor(double x)
 {
-    return (double) (x < 0.f ? (((int) x) - 1) : ((int) x));
+	double y,z;
+	z=modf(x,&y);
+	if(z>x) z-=1.;
+    return z;
 }
 
 ICACHE_FLASH_ATTR double pow(double x, double y){

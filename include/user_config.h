@@ -16,6 +16,7 @@
 #define GROUP_IP_ADDR_2 2
 #define GROUP_IP_ADDR_3 6
 #define GROUP_IP_ADDR_4 6
+
 #define ICACHE_STORE_ATTR __attribute__((aligned(4)))
 //#define FULL_HTTP_CODE_LIST 1
 

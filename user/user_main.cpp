@@ -11,9 +11,7 @@ extern "C"{
 #	include "user_interface.h"
 #	include "user_config.h"
 #	include "espconn.h"
-#include "c_stdio.h"
 }
-#include <vector>
 #include "routines.h"
 #include "espmissingincludes.h"
 #include "Config.h"
@@ -42,10 +40,10 @@ void ICACHE_FLASH_ATTR reset_wifi_configs(){
 		if(!wifi_station_set_config(&stconfig))
 		{
 			DPRINT("Config setting failed");
-			Config::instance().wifi_configured(false);
+			Config::I().wifi_configured(false);
 		}else{
 			DPRINT("Config setting success");
-			Config::instance().wifi_configured(true);
+			Config::I().wifi_configured(true);
 		}
 	}
 	wifi_station_connect();
@@ -96,7 +94,7 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 	DPRINT("ESP8266 platform starting...");
 //	Config::instance().zero();
 
-	if(!Config::instance().wifi_configured())
+	if(!Config::I().wifi_configured())
 		reset_wifi_configs();
 
 //	startudp();
@@ -105,9 +103,6 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 	os_timer_setfn(&WiFiCheck, (os_timer_func_t *)wifi_check_ip, NULL);
 	os_timer_arm(&WiFiCheck, 1000, 0);
 
-#ifdef PLATFORM_DEBUG
-	system_print_meminfo ();
-#endif
 	cJSON *root,*format;
 	int framerate;
 	char* rendered;
@@ -115,20 +110,13 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 	format = cJSON_GetObjectItem(root,"format");
 	framerate = cJSON_GetObjectItem(format,"frame rate")->valueint;
 	DPRINT("%d",framerate);
-	cJSON_GetObjectItem(format,"frame rate")->valueint = 25;
+	cJSON_SetIntValue(cJSON_GetObjectItem(format,"frame rate"),25);
 	rendered = cJSON_Print(root);
 	DPRINT("%s",rendered);
 	cJSON_Delete(root);
 	os_free(rendered);
 
-	PM;
-	char *test=new char[513];
-//	c_sprintf(test,(char*)"%f",3.1415926);
-	PM;dtoa(test,3.1415926,'f',0,0);
-	DPRINT("%s",test);
-//	double x=3.1415926,y,z;
-//	z=modf(x,&y);
-//	DPRINT("%d %d",(int)(z*1000.),(int)y);
+
 	PM;
 //	HTTPD::instance();
 }

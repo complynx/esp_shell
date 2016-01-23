@@ -8,6 +8,7 @@
 #ifndef USER_CONFIG_H_
 #define USER_CONFIG_H_
 
+#include "user_config.h"
 #include "bitmasks.h"
 #include "espmissingincludes.h"
 #include "c_types.h"
@@ -15,16 +16,19 @@
 #define MAX_SAVED_STR 64
 
 #define CONFIGS \
-	CONFIG(u16,port)\
-	CONFIG_S(name,MAX_SAVED_STR)\
-	CONFIG_F(wifi_configured,0)
+	CONFIG(u16,port,UDP_PORT)\
+	CONFIG_S(name,MAX_SAVED_STR,"")\
+	CONFIG_F(wifi_configured,0,false)
+
+#define CNF_DEFAULTS \
+	DEFAULT(port,)
 
 #undef CONFIG
-#define CONFIG(type,name) type name;
+#define CONFIG(type,name,def) type name;
 #undef CONFIG_S
-#define CONFIG_S(name,maxlen) char name[];
+#define CONFIG_S(name,maxlen,def) char name[];
 #undef CONFIG_F
-#define CONFIG_F(name,ind)
+#define CONFIG_F(name,ind,def)
 
 struct Config_inner{
 	u32 CRC;
@@ -40,41 +44,29 @@ union Config_inner_mem{
 };
 
 #undef CONFIG
-#define CONFIG(type,name) inline type name(){\
-		return cnf->name;\
-	}\
-	inline type name(type temp){\
-		cnf->name=temp;\
-		save();\
-		return cnf->name;\
-	}
+#define CONFIG(type,name,def) type name();\
+		type name(type temp);
+
 #undef CONFIG_S
-#define CONFIG_S(name,maxlen) inline char* name(){\
-		return cnf->name;\
-	}\
-	inline char* name(char* temp){\
-		ets_strncpy(cnf->name,temp,maxlen-1);\
-		cnf->name[maxlen-1]=0;\
-		save();\
-		return cnf->name;\
-	}
+#define CONFIG_S(name,maxlen,def) char* name();\
+	char* name(char* temp);
 
 #undef CONFIG_F
-#define CONFIG_F(name,ind) inline bool name(){\
-		return (MASK_HASN(cnf->flags,ind));\
-	}\
-	inline bool name(bool set){\
-		if(set) MASK_SETN(cnf->flags,ind);\
-		else MASK_UNSETN(cnf->flags,ind);\
-		save();\
-		return (MASK_HASN(cnf->flags,ind));\
-	}
+#define CONFIG_F(name,ind,def) bool name();\
+	bool name(bool set);
 
 class Config {
+	bool _is_default;
+	bool _disable_saving;
 public:
-	static Config& instance();
+	static Config& I();
 	virtual ~Config();
-	void zero();
+	void reset();
+	void load();
+	void save();
+	void disable_saving();
+	void enable_saving();
+	inline bool is_default(){return _is_default;};
 	CONFIGS
 private:
 	Config_inner_mem *U;
@@ -82,8 +74,6 @@ private:
 	Config();
 	Config(Config const&);
 	void operator=(Config const&);
-	void load();
-	void save();
 
 };
 
