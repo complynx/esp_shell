@@ -129,7 +129,7 @@ MODULES		= driver user cJSON polyfills
 EXTRA_INCDIR    = include $(EXTRA_BASE)/include
 
 # libraries used in this project, mainly provided by the SDK
-LIBS		= c gcc hal phy pp net80211 lwip wpa main crypto
+LIBS		= c gcc hal phy pp net80211 lwip wpa main crypto pwm
 
 # compiler flags using during compilation of source files
 CFLAGS		= -Os -g -O2 -std=gnu90 -Wpointer-arith -Wundef -Werror -Wl,-EL -fno-inline-functions -nostdlib -mlongcalls -mtext-section-literals -mno-serialize-volatile -D__ets__ -DICACHE_FLASH
@@ -139,7 +139,7 @@ CXXFLAGS	= -Os -g -O2 -Wpointer-arith -Wundef -Werror -Wl,-EL -fno-inline-functi
 LDFLAGS		= -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static
 
 # linker script used for the above linkier step
-LD_SCRIPT	= eagle.app.v6.cpp.ld
+LD_SCRIPT	= eagle.app.v6.cpp.2.ld
 
 # various paths from the SDK used in this project
 SDK_LIBDIR	= lib

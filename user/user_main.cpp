@@ -11,12 +11,14 @@ extern "C"{
 #	include "user_interface.h"
 #	include "user_config.h"
 #	include "espconn.h"
+#   include "sntp.h"
 }
 #include "routines.h"
 #include "espmissingincludes.h"
 #include "Config.h"
 #include "IoTServer.h"
 #include "cJSON.h"
+#include "RGBLED.h"
 
 extern "C" void ICACHE_FLASH_ATTR user_rf_pre_init(void)
 {
@@ -85,6 +87,82 @@ static void ICACHE_FLASH_ATTR wifi_check_ip(void *arg)
 	os_timer_arm(&WiFiCheck, 1000, 0);
 }
 
+
+static ETSTimer ledcycle;
+static int msec=20,state=0, i=0;
+
+static void ICACHE_FLASH_ATTR cycle_tick(){
+	os_timer_disarm(&ledcycle);
+	RGBLED* l=&RGBLED::I();
+	u8 r=l->R(),g=l->G(),b=l->B();
+	switch(state){
+	case 0://dim to black
+		if(!r && !g && !b){
+			++state;
+		}else{
+			if(r) --r;
+			if(g) --g;
+			if(b) --b;
+		}
+		break;
+	case 6:
+	case 1://light up red;
+		if(r==255)	++state;
+		else		++r;
+		break;
+	case 2://light up green;
+		if(g==255)	++state;
+		else		++g;
+		break;
+	case 3://light down red;
+		if(!r)	++state;
+		else	--r;
+		break;
+	case 4://light up blue;
+		if(b==255)	++state;
+		else		++b;
+		break;
+	case 5://light down green;
+		if(!g)	++state;
+		else	--g;
+		break;
+	case 7://light down blue;
+		if(!b)	++state;
+		else	--b;
+		break;
+	case 8://light up all;
+		if(b==255 && r==255 && g==255)	++state;
+		else{
+			if(b<255) ++b;
+			if(g<255) ++g;
+			if(r<255) ++r;
+		}
+		break;
+	default:
+//		DPRINT("Full cycle passed");
+		state=0;
+	}
+
+	l->color(r,g,b);
+	++i;
+	if(i>100){
+		uint32 current_stamp;
+		current_stamp = sntp_get_current_timestamp();
+		if(current_stamp){
+			DPRINT("sntp: %d, %s",current_stamp,
+			sntp_get_real_time(current_stamp));
+			PM;
+		}else{
+			DPRINT("no sntp info");
+		}
+		i=0;
+		DPRINT("RGB: %d %d %d, state: %d",r,g,b,state);
+	}
+
+	os_timer_setfn(&ledcycle, (os_timer_func_t *)cycle_tick, NULL);
+	os_timer_arm(&ledcycle, msec, 0);
+}
+
 extern "C" void ICACHE_FLASH_ATTR user_init(void)
 {
 	do_global_ctors();
@@ -103,18 +181,16 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 	os_timer_setfn(&WiFiCheck, (os_timer_func_t *)wifi_check_ip, NULL);
 	os_timer_arm(&WiFiCheck, 1000, 0);
 
-	cJSON *root,*format;
-	int framerate;
-	char* rendered;
-	root = cJSON_Parse("{\n    \"name\": \"Jack (\\\"Bee\\\") Nimble\",\n    \"format\": {\n        \"type\":       \"rect\",\n        \"width\":      1920, \n        \"height\":     1080, \n        \"interlace\":  false, \n        \"frame rate\": 24\n    }\n}");
-	format = cJSON_GetObjectItem(root,"format");
-	framerate = cJSON_GetObjectItem(format,"frame rate")->valueint;
-	DPRINT("%d",framerate);
-	cJSON_SetIntValue(cJSON_GetObjectItem(format,"frame rate"),25);
-	rendered = cJSON_Print(root);
-	DPRINT("%s",rendered);
-	cJSON_Delete(root);
-	os_free(rendered);
+	RGBLED::I().color(0x00FFFFFF);
+
+	sntp_setservername(0, (char*)"ru.pool.ntp.org"); // set server 0 by domain name
+	sntp_setservername(1, (char*)"ntp4.stratum2.ru"); // set server 1 by domain name
+	sntp_set_timezone(3);
+	sntp_init();
+
+	os_timer_disarm(&ledcycle);
+	os_timer_setfn(&ledcycle, (os_timer_func_t *)cycle_tick, NULL);
+	os_timer_arm(&ledcycle, 5000, 0);
 
 
 	PM;

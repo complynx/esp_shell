@@ -16,7 +16,8 @@
 #define MAX_SAVED_STR 64
 
 #define CONFIGS \
-	CONFIG(u16,port,UDP_PORT)\
+	CONFIG(u32,pwm_period,1000)\
+	CONFIG(u32,led_color,0x00FFFFFF)\
 	CONFIG_S(name,MAX_SAVED_STR,"")\
 	CONFIG_F(wifi_configured,0,false)
 

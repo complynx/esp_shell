@@ -3,13 +3,17 @@
 
 #define USE_OPTIMIZE_PRINTF
 
-#define ESP_PARAM_SEC_1 0x3E
-#define ESP_PARAM_SEC_2 0x3F
+#define ESP_PARAM_SEC_1 0x7B
+#define ESP_PARAM_SEC_2 0x7C
 #define PLATFORM_DEBUG		true
 #define WIFI_CLIENTSSID "complynx_64"
 #define WIFI_CLIENTPASS "ooyamaneko_1234"
 #define UART_BITRATE BIT_RATE_115200
-#define UDP_PORT 8266
+#define GROUP_UDP_PORT 8266
+#define MY_TYPE "RGB LED"
+#define BUFFER_LENGTH 16
+#define PWM_PERIOD 1000
+#define MAX_DUTY PWM_PERIOD*1000/45
 
 // commas instead of dots for functions and macros
 #define GROUP_IP_ADDR_1 238

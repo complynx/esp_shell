@@ -46,7 +46,7 @@ static int ICACHE_FLASH_ATTR cJSON_strcasecmp(const char *s1,const char *s2)
 static void *(*cJSON_malloc)(size_t sz) = os_malloc;
 static void (*cJSON_free)(void *ptr) = os_free;
 
-static char* ICACHE_FLASH_ATTR cJSON_strdup(const char* str)
+char* ICACHE_FLASH_ATTR cJSON_strdup(const char* str)
 {
       size_t len;
       char* copy;
@@ -119,7 +119,6 @@ static char * ICACHE_FLASH_ATTR print_number(cJSON *item)
 {
 	char *str;
 	double d=item->valuedouble;
-	DPRINT("%d",(int)(fabs(((double)item->valueint)-d)/DBL_EPSILON*100.));
 	if (fabs(((double)item->valueint)-d)<=DBL_EPSILON && d<=INT_MAX && d>=INT_MIN)
 	{
 		str=(char*)cJSON_malloc(21);	/* 2^64+1 can be represented in 21 chars. */

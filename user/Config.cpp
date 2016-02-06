@@ -23,6 +23,7 @@ static Config *c=(Config*)0;
 #endif
 
 #define MAGIC 0xFEEDF00D
+#define NOSAVE
 
 Config& ICACHE_FLASH_ATTR Config::I(){
 	if(!c)
@@ -84,10 +85,12 @@ void ICACHE_FLASH_ATTR Config::save(){
 		DPRINT("Saving config...");
 		u32 crc=crc32(MAGIC,U->mem+sizeof(u32),USED_MEM-sizeof(u32));
 		U->config.CRC=crc;
+#ifndef NOSAVE
 		spi_flash_erase_sector(ESP_PARAM_SEC_1);
 		spi_flash_write(ESP_PARAM_SEC_1*SPI_FLASH_SEC_SIZE, (unsigned int*)U->mem,USED_MEM);
 		spi_flash_erase_sector(ESP_PARAM_SEC_2);
 		spi_flash_write(ESP_PARAM_SEC_2*SPI_FLASH_SEC_SIZE, (unsigned int*)U->mem,USED_MEM);
+#endif
 	}
 }
 
