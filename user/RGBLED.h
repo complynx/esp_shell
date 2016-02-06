@@ -41,8 +41,51 @@ extern "C"{
 #define SPLIT_COLOR_A(A,C) do{(A)[2]=(C)&0xFF;(A)[1]=((C)>>8)&0xFF;(A)[0]=((C)>>16)&0xFF;}while(0);
 #define EXEC_COLOR_A(F,A) do{F((A)[0]);F((A)[1]);F((A)[2]);}while(0)
 
+#pragma pack(push,1)
+struct ColorAligned{
+	u8 b;
+	u8 g;
+	u8 r;
+};
+
+union Color{
+	u32 whole:24;
+	ColorAligned components;
+	Color();
+	Color(const u32&i);
+	Color(const Color&i);
+	operator u32() const;
+	const Color operator+(const Color& right);
+	Color& operator+=(const Color& right);
+	const Color operator-(const Color& right);
+	Color& operator-=(const Color& right);
+	Color& operator*=(const float& right);
+	Color& operator/=(const float& right);
+	bool operator==(const Color& right);
+};
+
+struct ProgramByte{
+	u8 check_bit:1;
+	u8 has_operations:1;
+	u8 fire:1;
+	u8 reverse:1;
+	u8 tail:4;
+};
+struct OperationSequence{
+	u8 check_bit:1;
+	u8 absolute:1;
+	u8 smooth:1;
+	u8 next_is_operation:1;
+	u32 time:20;
+	Color color;
+};
+#pragma pack(pop)
+
 class RGBLED {
-	u8 _color[3];
+	Color _color;
+	void* program;
+	ProgramByte* last_program_byte;
+	OperationSequence* last_operation_sequence;
 	RGBLED();
 	RGBLED(RGBLED const&);
 	void operator=(RGBLED const&);
@@ -55,12 +98,12 @@ public:
 	u8 B();
 	u8 B(u8);
 	char* toString();
-	u32 fromString(char*);
+	Color fromString(char*);
 	u8 toByte(u32);
 	u32 toDuty(u8);
-	u32 color();
-	u32 color(u32);
-	u32 color(u8,u8,u8);
+	Color color();
+	Color color(Color);
+	Color color(u8,u8,u8);
 	u8 color_n(u8,u8);
 	virtual ~RGBLED();
 };

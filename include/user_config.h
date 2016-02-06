@@ -15,6 +15,10 @@
 #define PWM_PERIOD 1000
 #define MAX_DUTY PWM_PERIOD*1000/45
 
+#define SNTP_SERVER_0 "ru.pool.ntp.org"
+#define SNTP_SERVER_1 "ntp4.stratum2.ru"
+#define SNTP_TZ 3//MSK
+
 // commas instead of dots for functions and macros
 #define GROUP_IP_ADDR_1 238
 #define GROUP_IP_ADDR_2 2
