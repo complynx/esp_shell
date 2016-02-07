@@ -26,55 +26,18 @@ RGBLED& ICACHE_FLASH_ATTR RGBLED::I(){
 }
 
 
-#define TICK 20 //msec
+#define TICK 2000 //msec
 static ETSTimer ledcycle;
-static void cycle_tick(){
-//	led->_color
-}
+void cycle_tick(){
+	if(led->program){//if there is a program
+		if(led->timer_relative){
 
-ICACHE_FLASH_ATTR const Color Color::operator+(const Color& right){
-	Color c(*this);
-	c+=right;
-	return c;
-}
-ICACHE_FLASH_ATTR Color& Color::operator+=(const Color& right) {
-	components.r+=right.components.r;
-	components.g+=right.components.g;
-	components.b+=right.components.b;
-    return *this;
-}
-ICACHE_FLASH_ATTR const Color Color::operator-(const Color& right){
-	Color c(*this);
-	c-=right;
-	return c;
-}
-ICACHE_FLASH_ATTR Color& Color::operator*=(const float& right){
-	float c;
-	c=((float)components.r)*right;
-	if(c>255) c=255;
-	else if(c<0) c=0;
-	components.r=c;
-	c=((float)components.g)*right;
-	if(c>255) c=255;
-	else if(c<0) c=0;
-	components.g=c;
-	c=((float)components.b)*right;
-	if(c>255) c=255;
-	else if(c<0) c=0;
-	components.b=c;
-	return (*this);
-}
-ICACHE_FLASH_ATTR Color& Color::operator/=(const float& right){
-	return operator *=(1/right);
-}
-ICACHE_FLASH_ATTR bool Color::operator==(const Color& right){
-	return whole==right.whole;
-}
-ICACHE_FLASH_ATTR Color& Color::operator-=(const Color& right) {
-	components.r-=right.components.r;
-	components.g-=right.components.g;
-	components.b-=right.components.b;
-    return *this;
+		}
+	}
+	u32 cts=sntp_get_current_timestamp();
+	if(cts){
+		DPRINT("%s",sntp_get_real_time(cts));
+	}
 }
 
 ICACHE_FLASH_ATTR RGBLED::RGBLED() {
@@ -82,6 +45,7 @@ ICACHE_FLASH_ATTR RGBLED::RGBLED() {
 	{{PWM_R_OUT_IO_MUX,PWM_R_OUT_IO_FUNC,PWM_R_OUT_IO_NUM},
 	{PWM_G_OUT_IO_MUX,PWM_G_OUT_IO_FUNC,PWM_G_OUT_IO_NUM},
 	{PWM_B_OUT_IO_MUX,PWM_B_OUT_IO_FUNC,PWM_B_OUT_IO_NUM}};
+	program=0;
 
 	DPRINT("Pins: R=%d, G=%d, B=%d",PWM_R_OUT_IO_NUM,PWM_G_OUT_IO_NUM,PWM_B_OUT_IO_NUM);
 
@@ -100,18 +64,11 @@ ICACHE_FLASH_ATTR RGBLED::RGBLED() {
 	os_timer_arm(&ledcycle, TICK, 1);
 }
 
-u8 ICACHE_FLASH_ATTR RGBLED::R(){return _color.components.r;}
-u8 ICACHE_FLASH_ATTR RGBLED::G(){return _color.components.g;}
-u8 ICACHE_FLASH_ATTR RGBLED::B(){return _color.components.b;}
-
-u8 ICACHE_FLASH_ATTR RGBLED::R(u8 r){return color_n(r,0);}
-u8 ICACHE_FLASH_ATTR RGBLED::G(u8 r){return color_n(r,1);}
-u8 ICACHE_FLASH_ATTR RGBLED::B(u8 r){return color_n(r,2);}
-
 u8 ICACHE_FLASH_ATTR RGBLED::color_n(u8 i,u8 c){
 	if(i>2) return 0;
 	i=2-i;//reversed byte order
 	u8* col=(u8*)(&_color);
+	col[i]=c;
 	pwm_set_duty(toDuty(col[i]),i);
 	pwm_start();
 	col[i] = toByte(pwm_get_duty(i));
@@ -137,11 +94,8 @@ ICACHE_FLASH_ATTR RGBLED::~RGBLED() {
 	// TODO Auto-generated destructor stub
 }
 
-Color ICACHE_FLASH_ATTR RGBLED::color(){
-	return _color;
-}
-
 Color ICACHE_FLASH_ATTR RGBLED::color(Color c){
+	DPRINT("%lx %lx",(u32)_color,(u32)c);
 	_color=c;
 	//Config::I().led_color(COLOR(_R,_G,_B));
 	pwm_set_duty(toDuty(_color.components.r),0);
@@ -151,14 +105,12 @@ Color ICACHE_FLASH_ATTR RGBLED::color(Color c){
 	_color.components.r=toByte(pwm_get_duty(0));
 	_color.components.g=toByte(pwm_get_duty(1));
 	_color.components.b=toByte(pwm_get_duty(2));
+	DPRINT("%lx",(u32)_color);
 	return _color;
 }
 
 Color ICACHE_FLASH_ATTR RGBLED::color(u8 r,u8 g,u8 b){
-	Color col;
-	col.components.r=r;
-	col.components.g=g;
-	col.components.b=b;
+	Color col(r,g,b);
 	return color(col);
 }
 
@@ -197,22 +149,6 @@ char* ICACHE_FLASH_ATTR skipspaces(char*str){
 		break;
 	}
 	return str;
-}
-
-ICACHE_FLASH_ATTR Color::Color(const Color& i){
-	whole=i.whole;
-}
-
-ICACHE_FLASH_ATTR Color::Color(const u32& i){
-	whole=i;
-}
-
-ICACHE_FLASH_ATTR Color::Color(){
-	whole=0;
-}
-
-ICACHE_FLASH_ATTR Color::operator u32() const{
-	return whole;
 }
 
 Color ICACHE_FLASH_ATTR RGBLED::fromString(char* str){

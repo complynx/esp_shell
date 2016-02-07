@@ -51,20 +51,69 @@ struct ColorAligned{
 union Color{
 	u32 whole:24;
 	ColorAligned components;
-	Color();
-	Color(const u32&i);
-	Color(const Color&i);
-	operator u32() const;
-	const Color operator+(const Color& right);
-	Color& operator+=(const Color& right);
-	const Color operator-(const Color& right);
-	Color& operator-=(const Color& right);
-	Color& operator*=(const float& right);
-	Color& operator/=(const float& right);
-	bool operator==(const Color& right);
+	inline Color() __attribute__((always_inline)){whole=0;}
+	inline Color(const u32&i) __attribute__((always_inline)){whole=i;}
+	inline Color(const Color&i) __attribute__((always_inline)){whole=i.whole;}
+	inline Color(const u8& r,const u8& g,const u8& b) __attribute__((always_inline)){
+		components.r=r;
+		components.g=g;
+		components.b=b;
+	}
+	inline u8& R() __attribute__((always_inline)){return components.r;}
+	inline u8& G() __attribute__((always_inline)){return components.g;}
+	inline u8& B() __attribute__((always_inline)){return components.b;}
+	inline u8& operator[](const u8& i) __attribute__((always_inline)){
+		if(i>2) return *((u8 *)(&components));
+		return ((u8 *)(&components))[2-i];
+	}
+	inline operator u32() const __attribute__((always_inline)){return whole;}
+	inline const Color operator+(const Color& right) __attribute__((always_inline)){
+		Color c(*this);
+		c+=right;
+		return c;
+	}
+	inline Color& operator+=(const Color& right) __attribute__((always_inline)){
+		components.r+=right.components.r;
+		components.g+=right.components.g;
+		components.b+=right.components.b;
+		return *this;
+	}
+	inline const Color operator-(const Color& right) __attribute__((always_inline)){
+		Color c(*this);
+		c-=right;
+		return c;
+	}
+	inline Color& operator-=(const Color& right) __attribute__((always_inline)){
+		components.r-=right.components.r;
+		components.g-=right.components.g;
+		components.b-=right.components.b;
+	    return *this;
+	}
+	inline Color& operator*=(const float& right) __attribute__((always_inline)){
+		float c;
+		c=((float)components.r)*right;
+		if(c>255) c=255;
+		else if(c<0) c=0;
+		components.r=c;
+		c=((float)components.g)*right;
+		if(c>255) c=255;
+		else if(c<0) c=0;
+		components.g=c;
+		c=((float)components.b)*right;
+		if(c>255) c=255;
+		else if(c<0) c=0;
+		components.b=c;
+		return (*this);
+	}
+	inline Color& operator/=(const float& right) __attribute__((always_inline)){
+		return operator *=(1/right);
+	}
+	inline bool operator==(const Color& right) __attribute__((always_inline)){
+		return whole==right.whole;
+	}
 };
 
-struct ProgramByte{
+struct ControlByte{
 	u8 check_bit:1;
 	u8 has_operations:1;
 	u8 fire:1;
@@ -83,25 +132,29 @@ struct OperationSequence{
 
 class RGBLED {
 	Color _color;
+	Color _color_start;
 	void* program;
-	ProgramByte* last_program_byte;
-	OperationSequence* last_operation_sequence;
+	OperationSequence* current_operation;
+	ControlByte* current_control;
+	u8 timer_relative;
+	u32 timer;
 	RGBLED();
 	RGBLED(RGBLED const&);
 	void operator=(RGBLED const&);
+	friend void cycle_tick();
 public:
 	static RGBLED &I();
-	u8 R();
-	u8 R(u8);
-	u8 G();
-	u8 G(u8);
-	u8 B();
-	u8 B(u8);
+	inline u8 R() __attribute__((always_inline)){return _color.components.r;}
+	inline u8 G() __attribute__((always_inline)){return _color.components.g;}
+	inline u8 B() __attribute__((always_inline)){return _color.components.b;}
+	inline u8 R(const u8& c) __attribute__((always_inline)){return color_n(c,0);}
+	inline u8 G(const u8& c) __attribute__((always_inline)){return color_n(c,1);}
+	inline u8 B(const u8& c) __attribute__((always_inline)){return color_n(c,2);}
 	char* toString();
 	Color fromString(char*);
 	u8 toByte(u32);
 	u32 toDuty(u8);
-	Color color();
+	inline Color color() __attribute__((always_inline)){return _color;}
 	Color color(Color);
 	Color color(u8,u8,u8);
 	u8 color_n(u8,u8);

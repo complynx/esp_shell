@@ -105,7 +105,8 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 	os_timer_setfn(&WiFiCheck, (os_timer_func_t *)wifi_check_ip, NULL);
 	os_timer_arm(&WiFiCheck, 1000, 0);
 
-	RGBLED::I().color(0x0);
+	RGBLED::I().color(0);
+	DPRINT("%lx",(u32)RGBLED::I().color());
 
 	Color t,k;
 	t=0xC0DEFACE;
