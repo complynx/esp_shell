@@ -11,7 +11,11 @@
 #include "IoTServer.h"
 
 #define IOT_TASKS \
-	IOT_TASK(whoAmI)
+	IOT_TASK(whoAmI)\
+	IOT_TASK(setcolor)\
+	IOT_TASK(getcolor)\
+	IOT_TASK(getprog)\
+	IOT_TASK(setprog)
 
 
 //#undef IOT_TASK

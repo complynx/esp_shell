@@ -95,7 +95,7 @@ void ICACHE_FLASH_ATTR cJSON_Delete(cJSON *c)
 /* Parse the input text to generate a number, and populate the result into item. */
 static const char * ICACHE_FLASH_ATTR parse_number(cJSON *item,const char *num)
 {
-	double n=0,sign=1,scale=0;int subscale=0,signsubscale=1;
+	double n=0,sign=1;int subscale=0,signsubscale=1,scale=0;
 
 	if (*num=='-') sign=-1,num++;	/* Has sign? */
 	if (*num=='0') num++;			/* is zero */
@@ -106,7 +106,18 @@ static const char * ICACHE_FLASH_ATTR parse_number(cJSON *item,const char *num)
 		while (*num>='0' && *num<='9') subscale=(subscale*10)+(*num++ - '0');	/* Number? */
 	}
 
-	n=sign*n*pow(10.0,(scale+subscale*signsubscale));	/* number = +/- number.fraction * 10^+/- exponent */
+	double pow=1;
+	scale+=subscale*signsubscale;
+	while(scale>0){
+		--scale;
+		pow*=10.;
+	}
+	while(scale<0){
+		++scale;
+		pow/=10.;
+	}
+
+	n=sign*n*pow;	/* number = +/- number.fraction * 10^+/- exponent */
 	
 	item->valuedouble=n;
 	item->valueint=(int)n;
@@ -312,6 +323,7 @@ static char * ICACHE_FLASH_ATTR print_value(cJSON *item,int depth,int fmt)
 		case cJSON_String:	out=print_string(item);break;
 		case cJSON_Array:	out=print_array(item,depth,fmt);break;
 		case cJSON_Object:	out=print_object(item,depth,fmt);break;
+		case cJSON_ConvertedAlready: out=cJSON_strdup(item->valuestring);break;
 	}
 	return out;
 }
@@ -543,6 +555,7 @@ cJSON * ICACHE_FLASH_ATTR cJSON_CreateNumber(double num)			{cJSON *item=cJSON_Ne
 cJSON * ICACHE_FLASH_ATTR cJSON_CreateString(const char *string)	{cJSON *item=cJSON_New_Item();if(item){item->type=cJSON_String;item->valuestring=cJSON_strdup(string);}return item;}
 cJSON * ICACHE_FLASH_ATTR cJSON_CreateArray(void)					{cJSON *item=cJSON_New_Item();if(item)item->type=cJSON_Array;return item;}
 cJSON * ICACHE_FLASH_ATTR cJSON_CreateObject(void)					{cJSON *item=cJSON_New_Item();if(item)item->type=cJSON_Object;return item;}
+cJSON * ICACHE_FLASH_ATTR cJSON_CreateConverted(const char *string)	{cJSON *item=cJSON_New_Item();if(item){item->type=cJSON_ConvertedAlready;item->valuestring=cJSON_strdup(string);}return item;}
 
 /* Create Arrays: */
 cJSON * ICACHE_FLASH_ATTR cJSON_CreateIntArray(const int *numbers,int count)		{int i;cJSON *n=0,*p=0,*a=cJSON_CreateArray();for(i=0;a && i<count;i++){n=cJSON_CreateNumber(numbers[i]);if(!i)a->child=n;else suffix_object(p,n);p=n;}return a;}

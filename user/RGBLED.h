@@ -14,6 +14,7 @@ extern "C"{
 #include "osapi.h"
 #include "user_interface.h"
 }
+#include "cJSON.h"
 
 #define PWM_R_OUT_IO_MUX 	PERIPHS_IO_MUX_MTDI_U
 #define PWM_R_OUT_IO_NUM 	12
@@ -40,6 +41,8 @@ extern "C"{
 #define SPLIT_COLOR(R,G,B,C) do{(B)=(C)&0xFF;(G)=((C)>>8)&0xFF;(R)=((C)>>16)&0xFF;}while(0);
 #define SPLIT_COLOR_A(A,C) do{(A)[2]=(C)&0xFF;(A)[1]=((C)>>8)&0xFF;(A)[0]=((C)>>16)&0xFF;}while(0);
 #define EXEC_COLOR_A(F,A) do{F((A)[0]);F((A)[1]);F((A)[2]);}while(0)
+
+#define STANDARD_TRANSFER_TIME 20
 
 #pragma pack(push,1)
 struct ColorAligned{
@@ -136,9 +139,11 @@ class RGBLED {
 	void* program;
 	OperationSequence* current_operation;
 	ControlByte* current_control;
-	u8 timer_relative;
 	u32 timer;
+	u32 starttime;
 	RGBLED();
+	void switch_sequence();
+	void init_sequence();
 	RGBLED(RGBLED const&);
 	void operator=(RGBLED const&);
 	friend void cycle_tick();
@@ -150,8 +155,17 @@ public:
 	inline u8 R(const u8& c) __attribute__((always_inline)){return color_n(c,0);}
 	inline u8 G(const u8& c) __attribute__((always_inline)){return color_n(c,1);}
 	inline u8 B(const u8& c) __attribute__((always_inline)){return color_n(c,2);}
-	char* toString();
-	Color fromString(char*);
+	static void set_check_bit(OperationSequence* );
+	static void set_check_bit(ControlByte* );
+	static bool test_check_bit(OperationSequence* );
+	static bool test_check_bit(ControlByte* );
+	static u32 program_length(void* );
+	int set_program(void*);
+	inline void* get_program() __attribute__((always_inline)){return program;}
+	void smooth_transfer(const Color&,int dsec=STANDARD_TRANSFER_TIME);
+	static char* toString(Color c);
+	static Color fromString(char*);
+	static Color fromString(cJSON*);
 	u8 toByte(u32);
 	u32 toDuty(u8);
 	inline Color color() __attribute__((always_inline)){return _color;}
