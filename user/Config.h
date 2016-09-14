@@ -13,13 +13,16 @@
 #include "espmissingincludes.h"
 #include "c_types.h"
 
+#include "../include/errno.h"
+
 #define MAX_SAVED_STR 64
 
 #define CONFIGS \
 	CONFIG(u32,pwm_period,1000)\
 	CONFIG(u32,led_color,0x00FFFFFF)\
 	CONFIG_S(name,MAX_SAVED_STR,"")\
-	CONFIG_F(wifi_configured,0,false)
+	CONFIG_F(wifi_configured,0,false)\
+	CONFIG(u32,errno,ERRNO_OK)
 
 #define CNF_DEFAULTS \
 	DEFAULT(port,)

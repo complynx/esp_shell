@@ -23,7 +23,7 @@ static Config *c=(Config*)0;
 #endif
 
 #define MAGIC 0xFEEDF00D
-#define NOSAVE
+//#define NOSAVE
 
 Config& ICACHE_FLASH_ATTR Config::I(){
 	if(!c)

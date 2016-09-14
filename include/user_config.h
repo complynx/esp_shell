@@ -3,8 +3,8 @@
 
 #define USE_OPTIMIZE_PRINTF
 
-#define ESP_PARAM_SEC_1 0x7B
-#define ESP_PARAM_SEC_2 0x7C
+#define ESP_PARAM_SEC_1 0x0e
+#define ESP_PARAM_SEC_2 0x0f
 #define PLATFORM_DEBUG		true
 #define WIFI_CLIENTSSID "complynx_64"
 #define WIFI_CLIENTPASS "ooyamaneko_1234"

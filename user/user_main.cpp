@@ -39,14 +39,9 @@ void ICACHE_FLASH_ATTR reset_wifi_configs(){
 		os_memset(stconfig.password, 0, sizeof(stconfig.password));
 		os_sprintf((char*)stconfig.ssid, "%s", WIFI_CLIENTSSID);
 		os_sprintf((char*)stconfig.password, "%s", WIFI_CLIENTPASS);
-		if(!wifi_station_set_config(&stconfig))
-		{
-			DPRINT("Config setting failed");
-			Config::I().wifi_configured(false);
-		}else{
-			DPRINT("Config setting success");
-			Config::I().wifi_configured(true);
-		}
+
+		Config::I().wifi_configured(wifi_station_set_config(&stconfig));
+		DPRINT("Config setting %s",Config::I().wifi_configured()?"success":"failed");
 	}
 	wifi_station_connect();
 	wifi_station_dhcpc_start();
@@ -59,6 +54,7 @@ static ETSTimer WiFiCheck;
 static void ICACHE_FLASH_ATTR wifi_check_ip(void *arg)
 {
 	os_timer_disarm(&WiFiCheck);
+
 	switch(wifi_station_get_connect_status())
 	{
 		case STATION_GOT_IP:
@@ -66,25 +62,43 @@ static void ICACHE_FLASH_ATTR wifi_check_ip(void *arg)
 			wifi_get_ip_info(STATION_IF, &LocalIP);
 			if(LocalIP.ip.addr != 0) {
 				DPRINT("WiFi connected");
+				Config::I().errno(ERRNO_OK);
 
 				IoTServer::instance().setIP(LocalIP);
 				return;
 			}
 			break;
 		case STATION_WRONG_PASSWORD:
-			DPRINT("WiFi connecting error, wrong password");
-			break;
-		case STATION_NO_AP_FOUND:
-			DPRINT("WiFi connecting error, ap not found");
-			break;
 		case STATION_CONNECT_FAIL:
-			DPRINT("WiFi connecting fail\r\n");
+		case STATION_NO_AP_FOUND:
+			Config::I().errno(STATION_ERROR_TO_ERRNO(wifi_station_get_connect_status()));
+			DPRINT("WiFi error #%d, see <user_interface.h> for info.",wifi_station_get_connect_status());
 			break;
 		default:
 			DPRINT("WiFi connecting...");
 	}
 	os_timer_setfn(&WiFiCheck, (os_timer_func_t *)wifi_check_ip, NULL);
 	os_timer_arm(&WiFiCheck, 1000, 0);
+}
+#define TEST_MEM 4096
+#define MAX_SEC 0x80
+void ICACHE_FLASH_ATTR test_flash(){
+	char mem[TEST_MEM];
+	ets_uart_printf("Clean sectors:\r\n");
+	for(unsigned int i=0;i<MAX_SEC;++i){
+		spi_flash_read(i*SPI_FLASH_SEC_SIZE, (unsigned int*)mem,TEST_MEM);
+		char b=mem[0];
+		bool c=false;
+		for(unsigned int j=1;j<TEST_MEM;++j){
+			if(mem[j]!=b){
+				c=true;
+				break;
+			}
+		}
+		if(!c)
+			ets_uart_printf("%x ",i);
+	}
+	ets_uart_printf("\r\n");
 }
 
 extern "C" void ICACHE_FLASH_ATTR user_init(void)
@@ -95,6 +109,7 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 
 	DPRINT("ESP8266 platform starting...");
 //	Config::instance().zero();
+	Config::I().errno(ERRNO_OK);
 
 	if(!Config::I().wifi_configured())
 		reset_wifi_configs();
@@ -102,10 +117,12 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 //	startudp();
 
 	os_timer_disarm(&WiFiCheck);
+	Config::I().errno(ERRNO_UNDEFINED);
 	os_timer_setfn(&WiFiCheck, (os_timer_func_t *)wifi_check_ip, NULL);
 	os_timer_arm(&WiFiCheck, 1000, 0);
 
 	RGBLED::I();
+	test_flash();
 
 	PM;
 //	HTTPD::instance();
