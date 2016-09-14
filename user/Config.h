@@ -13,7 +13,7 @@
 #include "espmissingincludes.h"
 #include "c_types.h"
 
-#include "../include/errno.h"
+#include "errno.h"
 
 #define MAX_SAVED_STR 64
 
