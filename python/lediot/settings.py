@@ -1,0 +1,8 @@
+
+UDP_IP = "238.2.6.6"
+UDP_PORT = 8266
+
+LOCAL_SSID = '"complynx_64"'
+
+ESP_NAME = "ESP-16575678"
+

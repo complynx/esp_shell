@@ -141,6 +141,7 @@ class RGBLED {
 	ControlByte* current_control;
 	u32 timer;
 	u32 starttime;
+	bool enabled;
 	RGBLED();
 	void switch_sequence();
 	void init_sequence();
@@ -160,6 +161,9 @@ public:
 	static bool test_check_bit(OperationSequence* );
 	static bool test_check_bit(ControlByte* );
 	static u32 program_length(void* );
+	inline bool toggle() __attribute__((always_inline)){return toggle(!enabled);}
+	inline bool is_enabled() __attribute__((always_inline)){return enabled;}
+	bool toggle(bool mode);
 	int set_program(void*);
 	inline void* get_program() __attribute__((always_inline)){return program;}
 	void smooth_transfer(const Color&,int dsec=STANDARD_TRANSFER_TIME);

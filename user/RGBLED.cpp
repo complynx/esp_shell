@@ -139,10 +139,17 @@ void ICACHE_FLASH_ATTR RGBLED::init_sequence(){
 	}
 }
 
+static u32 ticker=0;
+#define RESET_CYCLE 10000
 static ETSTimer ledcycle;
 void cycle_tick(){
-	if(led->program && led->current_control->has_operations){//if there is a program and we are not at the end
-		u32 cts=sntp_get_current_timestamp();
+	u32 cts=sntp_get_current_timestamp();
+	++ticker;
+	if(ticker>RESET_CYCLE){
+		IoTServer::instance().maybe_reset();
+		ticker = 0;
+	}
+	if(led->program && led->current_control->has_operations && led->enabled){//if there is a program and we are not at the end
 		if(cts || !led->starttime){
 			if(led->starttime==1){
 				led->init_sequence();
@@ -151,7 +158,7 @@ void cycle_tick(){
 			do{
 				shiftprog=false;
 				if(led->starttime){
-					if(cts>led->timer) shiftprog=true;
+					if(cts>led->timer) 		shiftprog=true;
 				}else{
 					if(led->timer<=TICK)	shiftprog=true;
 					else					led->timer-=TICK;//shiftprog = false here, so we will exit this.
@@ -187,6 +194,7 @@ ICACHE_FLASH_ATTR RGBLED::RGBLED() {
 	{{PWM_R_OUT_IO_MUX,PWM_R_OUT_IO_FUNC,PWM_R_OUT_IO_NUM},
 	{PWM_G_OUT_IO_MUX,PWM_G_OUT_IO_FUNC,PWM_G_OUT_IO_NUM},
 	{PWM_B_OUT_IO_MUX,PWM_B_OUT_IO_FUNC,PWM_B_OUT_IO_NUM}};
+	enabled = true;
 	program=0;
 
 	DPRINT("Pins: R=%d, G=%d, B=%d",PWM_R_OUT_IO_NUM,PWM_G_OUT_IO_NUM,PWM_B_OUT_IO_NUM);
@@ -318,6 +326,19 @@ u8 ICACHE_FLASH_ATTR RGBLED::toByte(u32 c){
 u32 ICACHE_FLASH_ATTR RGBLED::toDuty(u8 c){
 	return (u32)(duty_tab[c]);
 }
+bool ICACHE_FLASH_ATTR RGBLED::toggle(bool mode){
+	enabled = mode;
+
+	if(enabled){
+		color(_color);
+	}else{
+		pwm_set_duty(0,0);
+		pwm_set_duty(0,1);
+		pwm_set_duty(0,2);
+		pwm_start();
+	}
+	return enabled;
+}
 
 ICACHE_FLASH_ATTR RGBLED::~RGBLED() {
 }
@@ -325,11 +346,13 @@ ICACHE_FLASH_ATTR RGBLED::~RGBLED() {
 Color ICACHE_FLASH_ATTR RGBLED::color(Color c){
 	//DPRINT("%lx %lx",(u32)_color,(u32)c);
 	_color=c;
-	//Config::I().led_color(COLOR(_R,_G,_B));
-	pwm_set_duty(toDuty(_color.components.r),0);
-	pwm_set_duty(toDuty(_color.components.g),1);
-	pwm_set_duty(toDuty(_color.components.b),2);
-	pwm_start();
+	if(enabled){
+		//Config::I().led_color(COLOR(_R,_G,_B));
+		pwm_set_duty(toDuty(_color.components.r),0);
+		pwm_set_duty(toDuty(_color.components.g),1);
+		pwm_set_duty(toDuty(_color.components.b),2);
+		pwm_start();
+	}
 	//DPRINT("%lx",(u32)_color);
 	return _color;
 }
@@ -470,6 +493,31 @@ ICACHE_FLASH_ATTR void task_setcolor(RequestProcessor* p,cJSON*params){
 		}
 	}
 	task_getcolor(p,params);
+}
+
+ICACHE_FLASH_ATTR void task_is_enabled(RequestProcessor* p,cJSON*params){
+	if(p->response){
+		cJSON *r=cJSON_GetObjectItem(p->response,"enabled");
+		if(r) cJSON_Delete(r);
+		r=cJSON_CreateBool(led->is_enabled());
+		cJSON_AddItemToObject(p->response,"enabled",r);
+	}
+}
+
+ICACHE_FLASH_ATTR void task_toggle(RequestProcessor* p,cJSON*params){
+	bool en = !led->is_enabled();
+	if(params){
+		if(params->type == cJSON_NULL || params->type == cJSON_False) en = false;
+		else if(params->type == cJSON_Number){
+			en = !!(params->valueint);
+		}else if(params->type == cJSON_String){
+			en = !!strlen(params->string);
+		}else{
+			en = true;
+		}
+	}
+	en = led->toggle(en);
+	task_is_enabled(p,params);
 }
 
 ICACHE_FLASH_ATTR cJSON* program_to_json(void*p){

@@ -14,6 +14,8 @@
 	IOT_TASK(whoAmI)\
 	IOT_TASK(setcolor)\
 	IOT_TASK(getcolor)\
+	IOT_TASK(toggle)\
+	IOT_TASK(is_enabled)\
 	IOT_TASK(getprog)\
 	IOT_TASK(setprog)
 

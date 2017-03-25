@@ -109,7 +109,14 @@ extern "C" void ICACHE_FLASH_ATTR user_init(void)
 
 	DPRINT("ESP8266 platform starting...");
 //	Config::instance().zero();
+	DPRINT("My name: %s",Config::I().name());
+	if(!strlen(Config::I().name())){
+		Config::I().reset();
+		DPRINT("My name: %s",Config::I().name());
+	}
+
 	Config::I().errno(ERRNO_OK);
+
 
 	if(!Config::I().wifi_configured())
 		reset_wifi_configs();

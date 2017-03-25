@@ -75,7 +75,7 @@ ICACHE_FLASH_ATTR IoTServer::IoTServer() {
 	is_sending=0;
 	_conn.proto.udp=new (esp_udp);
 	_conn.type=ESPCONN_UDP;
-	_conn.state = ESPCONN_NONE;
+	_conn.state=ESPCONN_NONE;
 	_udp.local_port=GROUP_UDP_PORT;
 	_udp.remote_port=GROUP_UDP_PORT;
 	DPRINT("Server port: %d",_udp.local_port);
@@ -102,6 +102,7 @@ ICACHE_FLASH_ATTR void IoTServer::setIP(struct ip_info&ip){
 	DPRINT("Group IP: %d.%d.%d.%d",group_ip.ip.addr&0xff,(group_ip.ip.addr>>8)&0xff,(group_ip.ip.addr>>16)&0xff,(group_ip.ip.addr>>24)&0xff);
 	espconn_igmp_join(&my_ip.ip, &group_ip.ip);
 	DPRINT("Joined multicast group.");
+	reset_udp();
 	PM;
 }
 
@@ -117,16 +118,25 @@ static ICACHE_FLASH_ATTR int objectHasMyName(cJSON*obj){
 	cJSON*p;
 	if(obj->type==cJSON_String){
 		DPRINT("Name is: %s, my name is %s",obj->valuestring,Config::I().name());
-		if(!os_strcmp(obj->valuestring,Config::I().name())) return IS_FOR_ME;
+		if(!os_strcmp(obj->valuestring,Config::I().name())){
+			DPRINT("It's for me");
+			return IS_FOR_ME;
+		}
 		DPRINT("Name is not me, maybe it's '*'");
-		if(!os_strcmp(obj->valuestring,"*")) return IS_FOR_ALL;
+		if(!os_strcmp(obj->valuestring,"*")){
+			DPRINT("Name is '*'");
+			return IS_FOR_ALL;
+		}
 	}else if(obj->type==cJSON_Array){
 		DPRINT("There is an array of names");
 		int i,L=cJSON_GetArraySize(obj);
 		for(i=0;i<L;++i){
 			p=cJSON_GetArrayItem(obj,i);
 			if(p && p->type==cJSON_String) DPRINT("Next name is: %s",p->valuestring);
-			if(p && p->type==cJSON_String && !os_strcmp(p->valuestring,Config::I().name())) return IS_FOR_ME;
+			if(p && p->type==cJSON_String && !os_strcmp(p->valuestring,Config::I().name())){
+				DPRINT("It's for me also");
+				return IS_FOR_ME;
+			}
 		}
 	}
 	DPRINT("Not for me =(");
@@ -220,12 +230,15 @@ ICACHE_FLASH_ATTR void IoTServer::recv_cb(void*arg,char*data,unsigned short int 
 				DPRINT("Removing processor");
 				delete r;
 			}else if(objectHasMyName(cJSON_GetObjectItem(root,"who"))){
+				DPRINT("Search request, answering...");
 				RequestProcessor* r=new RequestProcessor(root);
 				r->whoAmI();
 				r->send();
 				delete r;
-			}else
+			}else{
+				DPRINT("Won't answer.");
 				cJSON_Delete(root);
+			}
 		}else cJSON_Delete(root);
 	}
 	PM;
@@ -284,6 +297,12 @@ ICACHE_FLASH_ATTR void IoTServer::send_current(){
 		reset_udp();
 		if(is_sending)
 			espconn_send(&_conn,(u8*)is_sending,os_strlen(is_sending));
+	}
+}
+
+ICACHE_FLASH_ATTR void IoTServer::maybe_reset(){
+	if(!is_sending){
+		reset_udp();
 	}
 }
 

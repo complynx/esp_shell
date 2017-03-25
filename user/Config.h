@@ -30,7 +30,7 @@
 #undef CONFIG
 #define CONFIG(type,name,def) type name;
 #undef CONFIG_S
-#define CONFIG_S(name,maxlen,def) char name[];
+#define CONFIG_S(name,maxlen,def) char name[maxlen];
 #undef CONFIG_F
 #define CONFIG_F(name,ind,def)
 

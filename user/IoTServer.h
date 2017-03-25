@@ -66,6 +66,7 @@ private:
 	struct ip_info my_ip;
 	void send_current();
 public:
+	void maybe_reset();
 	void send(char*);
 	static IoTServer&instance();
 	void setIP(struct ip_info&);
