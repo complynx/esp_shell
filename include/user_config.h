@@ -6,8 +6,8 @@
 #define ESP_PARAM_SEC_1 0x0e
 #define ESP_PARAM_SEC_2 0x0f
 #define PLATFORM_DEBUG		true
-#define WIFI_CLIENTSSID "complynx_64"
-#define WIFI_CLIENTPASS "ooyamaneko_1234"
+#define WIFI_CLIENTSSID "ssid"
+#define WIFI_CLIENTPASS "pass"
 #define UART_BITRATE BIT_RATE_115200
 #define GROUP_UDP_PORT 8266
 #define MY_TYPE "RGB LED"
